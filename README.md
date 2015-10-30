@@ -16,6 +16,7 @@ How to use the ISP port:
 
 ![](https://github.com/maciek252/OpenElDisp/blob/master/schematElDisp.png)
 
+The original "misiuSoft" software can still be installed at any time.
 
 ##BOOTLOADER
 

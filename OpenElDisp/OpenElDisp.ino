@@ -1,40 +1,6 @@
-/*
-This Code has extra features 
-including a XY positioning function on Display
-and a Line Draw function on Nokia 3310 LCD 
-It is modded from the original 
-http://playground.arduino.cc/Code/PCD8544
-*/
-// Mods by Jim Park 
-// jim(^dOt^)buzz(^aT^)gmail(^dOt^)com
-// hope it works for you
-//#define PIN_SCE   12  // LCD CS  .... Pin 3
-//#define PIN_RESET 11  // LCD RST .... Pin 1
-//#define PIN_DC    14 // LCD Dat/Com. Pin 5
-//#define PIN_SDIN  15  // LCD SPIDat . Pin 6
-//#define PIN_SCLK  16  // LCD SPIClk . Pin 4
-                     // LCD Gnd .... Pin 2
-                     // LCD Vcc .... Pin 8
-                     // LCD Vlcd ... Pin 7
 
-#include <avr/io.h>
-#include <avr/pgmspace.h>
-#include <util/delay.h>
-
-
-
-#define PIN_SCE   8 // CS
-#define PIN_RESET 7
-#define PIN_DC    10
-#define PIN_SDIN  11
-#define PIN_SCLK  13
-
-#define LCD_C     LOW
-#define LCD_D     HIGH
-
-#define LCD_X     84
-#define LCD_Y     48
-#define LCD_CMD   0
+#include "PCD8544.h"
+#include "OneButton.h"
 
 int a = 0;
 int i = 0;
@@ -50,244 +16,77 @@ float pos_lat, pos_long;
   char *o;
   int c = 0;
 
+// A custom glyph (a smiley)...
+static const byte glyph[] = { B00010000, B00110100, B00110000, B00110100, B00010000 };
 
-static const byte ASCII[][5] =
-{
- {0x00, 0x00, 0x00, 0x00, 0x00} // 20  
-,{0x00, 0x00, 0x5f, 0x00, 0x00} // 21 !
-,{0x00, 0x07, 0x00, 0x07, 0x00} // 22 "
-,{0x14, 0x7f, 0x14, 0x7f, 0x14} // 23 #
-,{0x24, 0x2a, 0x7f, 0x2a, 0x12} // 24 $
-,{0x23, 0x13, 0x08, 0x64, 0x62} // 25 %
-,{0x36, 0x49, 0x55, 0x22, 0x50} // 26 &
-,{0x00, 0x05, 0x03, 0x00, 0x00} // 27 '
-,{0x00, 0x1c, 0x22, 0x41, 0x00} // 28 (
-,{0x00, 0x41, 0x22, 0x1c, 0x00} // 29 )
-,{0x14, 0x08, 0x3e, 0x08, 0x14} // 2a *
-,{0x08, 0x08, 0x3e, 0x08, 0x08} // 2b +
-,{0x00, 0x50, 0x30, 0x00, 0x00} // 2c ,
-,{0x08, 0x08, 0x08, 0x08, 0x08} // 2d -
-,{0x00, 0x60, 0x60, 0x00, 0x00} // 2e .
-,{0x20, 0x10, 0x08, 0x04, 0x02} // 2f /
-,{0x3e, 0x51, 0x49, 0x45, 0x3e} // 30 0
-,{0x00, 0x42, 0x7f, 0x40, 0x00} // 31 1
-,{0x42, 0x61, 0x51, 0x49, 0x46} // 32 2
-,{0x21, 0x41, 0x45, 0x4b, 0x31} // 33 3
-,{0x18, 0x14, 0x12, 0x7f, 0x10} // 34 4
-,{0x27, 0x45, 0x45, 0x45, 0x39} // 35 5
-,{0x3c, 0x4a, 0x49, 0x49, 0x30} // 36 6
-,{0x01, 0x71, 0x09, 0x05, 0x03} // 37 7
-,{0x36, 0x49, 0x49, 0x49, 0x36} // 38 8
-,{0x06, 0x49, 0x49, 0x29, 0x1e} // 39 9
-,{0x00, 0x36, 0x36, 0x00, 0x00} // 3a :
-,{0x00, 0x56, 0x36, 0x00, 0x00} // 3b ;
-,{0x08, 0x14, 0x22, 0x41, 0x00} // 3c <
-,{0x14, 0x14, 0x14, 0x14, 0x14} // 3d =
-,{0x00, 0x41, 0x22, 0x14, 0x08} // 3e >
-,{0x02, 0x01, 0x51, 0x09, 0x06} // 3f ?
-,{0x32, 0x49, 0x79, 0x41, 0x3e} // 40 @
-,{0x7e, 0x11, 0x11, 0x11, 0x7e} // 41 A
-,{0x7f, 0x49, 0x49, 0x49, 0x36} // 42 B
-,{0x3e, 0x41, 0x41, 0x41, 0x22} // 43 C
-,{0x7f, 0x41, 0x41, 0x22, 0x1c} // 44 D
-,{0x7f, 0x49, 0x49, 0x49, 0x41} // 45 E
-,{0x7f, 0x09, 0x09, 0x09, 0x01} // 46 F
-,{0x3e, 0x41, 0x49, 0x49, 0x7a} // 47 G
-,{0x7f, 0x08, 0x08, 0x08, 0x7f} // 48 H
-,{0x00, 0x41, 0x7f, 0x41, 0x00} // 49 I
-,{0x20, 0x40, 0x41, 0x3f, 0x01} // 4a J
-,{0x7f, 0x08, 0x14, 0x22, 0x41} // 4b K
-,{0x7f, 0x40, 0x40, 0x40, 0x40} // 4c L
-,{0x7f, 0x02, 0x0c, 0x02, 0x7f} // 4d M
-,{0x7f, 0x04, 0x08, 0x10, 0x7f} // 4e N
-,{0x3e, 0x41, 0x41, 0x41, 0x3e} // 4f O
-,{0x7f, 0x09, 0x09, 0x09, 0x06} // 50 P
-,{0x3e, 0x41, 0x51, 0x21, 0x5e} // 51 Q
-,{0x7f, 0x09, 0x19, 0x29, 0x46} // 52 R
-,{0x46, 0x49, 0x49, 0x49, 0x31} // 53 S
-,{0x01, 0x01, 0x7f, 0x01, 0x01} // 54 T
-,{0x3f, 0x40, 0x40, 0x40, 0x3f} // 55 U
-,{0x1f, 0x20, 0x40, 0x20, 0x1f} // 56 V
-,{0x3f, 0x40, 0x38, 0x40, 0x3f} // 57 W
-,{0x63, 0x14, 0x08, 0x14, 0x63} // 58 X
-,{0x07, 0x08, 0x70, 0x08, 0x07} // 59 Y
-,{0x61, 0x51, 0x49, 0x45, 0x43} // 5a Z
-,{0x00, 0x7f, 0x41, 0x41, 0x00} // 5b [
-,{0x02, 0x04, 0x08, 0x10, 0x20} // 5c ¥
-,{0x00, 0x41, 0x41, 0x7f, 0x00} // 5d ]
-,{0x04, 0x02, 0x01, 0x02, 0x04} // 5e ^
-,{0x40, 0x40, 0x40, 0x40, 0x40} // 5f _
-,{0x00, 0x01, 0x02, 0x04, 0x00} // 60 `
-,{0x20, 0x54, 0x54, 0x54, 0x78} // 61 a
-,{0x7f, 0x48, 0x44, 0x44, 0x38} // 62 b
-,{0x38, 0x44, 0x44, 0x44, 0x20} // 63 c
-,{0x38, 0x44, 0x44, 0x48, 0x7f} // 64 d
-,{0x38, 0x54, 0x54, 0x54, 0x18} // 65 e
-,{0x08, 0x7e, 0x09, 0x01, 0x02} // 66 f
-,{0x0c, 0x52, 0x52, 0x52, 0x3e} // 67 g
-,{0x7f, 0x08, 0x04, 0x04, 0x78} // 68 h
-,{0x00, 0x44, 0x7d, 0x40, 0x00} // 69 i
-,{0x20, 0x40, 0x44, 0x3d, 0x00} // 6a j 
-,{0x7f, 0x10, 0x28, 0x44, 0x00} // 6b k
-,{0x00, 0x41, 0x7f, 0x40, 0x00} // 6c l
-,{0x7c, 0x04, 0x18, 0x04, 0x78} // 6d m
-,{0x7c, 0x08, 0x04, 0x04, 0x78} // 6e n
-,{0x38, 0x44, 0x44, 0x44, 0x38} // 6f o
-,{0x7c, 0x14, 0x14, 0x14, 0x08} // 70 p
-,{0x08, 0x14, 0x14, 0x18, 0x7c} // 71 q
-,{0x7c, 0x08, 0x04, 0x04, 0x08} // 72 r
-,{0x48, 0x54, 0x54, 0x54, 0x20} // 73 s
-,{0x04, 0x3f, 0x44, 0x40, 0x20} // 74 t
-,{0x3c, 0x40, 0x40, 0x20, 0x7c} // 75 u
-,{0x1c, 0x20, 0x40, 0x20, 0x1c} // 76 v
-,{0x3c, 0x40, 0x30, 0x40, 0x3c} // 77 w
-,{0x44, 0x28, 0x10, 0x28, 0x44} // 78 x
-,{0x0c, 0x50, 0x50, 0x50, 0x3c} // 79 y
-,{0x44, 0x64, 0x54, 0x4c, 0x44} // 7a z
-,{0x00, 0x08, 0x36, 0x41, 0x00} // 7b {
-,{0x00, 0x00, 0x7f, 0x00, 0x00} // 7c |
-,{0x00, 0x41, 0x36, 0x08, 0x00} // 7d }
-,{0x10, 0x08, 0x08, 0x10, 0x08} // 7e ←
-,{0x00, 0x06, 0x09, 0x09, 0x06} // 7f →
-};
+// Setup a new OneButton on pin A1.  
+OneButton button1(3, true);
+// Setup a new OneButton on pin A2.  
+OneButton button2(6, true);
 
 
+/*
+ PCD8544(unsigned char sclk  = 3,    clock       (display pin 2) 
+                unsigned char sdin  = 4,    data-in     (display pin 3) 
+                unsigned char dc    = 5,    data select (display pin 4) 
+                unsigned char reset = 6,    reset       (display pin 8) 
+                unsigned char sce   = 7);   enable      (display pin 5) 
+*/
+static PCD8544 lcd(13,11,10,7,8);
 
 
-void LcdCharacter(char character)
-{
-  LcdWrite(LCD_D, 0x00);
-  for (int index = 0; index < 5; index++)
-  {
-    LcdWrite(LCD_D, ASCII[character - 0x20][index]);
-  }
-  LcdWrite(LCD_D, 0x00);
-}
+void setup() {
+    pinMode(9, OUTPUT);
+  // Setup the Serial port. see http://arduino.cc/en/Serial/IfSerial
+//  Serial.begin(9600);
+Serial.begin(57600);
+      digitalWrite(9, LOW);
+  // PCD8544-compatible displays may have a different resolution...
+  lcd.begin(84, 48);
 
-void LcdClear(void)
-{
-  for (int index = 0; index < LCD_X * LCD_Y / 8; index++)
-  {
-    LcdWrite(LCD_D, 0x00);
-  }
-}
-
-void LcdInitialise(void)
-{
-  pinMode(PIN_SCE,   OUTPUT);
-  pinMode(PIN_RESET, OUTPUT);
-  pinMode(PIN_DC,    OUTPUT);
-  pinMode(PIN_SDIN,  OUTPUT);
-  pinMode(PIN_SCLK,  OUTPUT);
-
-  digitalWrite(PIN_RESET, LOW);
- // delay(1);
-  digitalWrite(PIN_RESET, HIGH);
-
-  LcdWrite( LCD_CMD, 0x21 );  // LCD Extended Commands.
-  LcdWrite( LCD_CMD, 0xBf );  // Set LCD Vop (Contrast). //B1
-  LcdWrite( LCD_CMD, 0x04 );  // Set Temp coefficent. //0x04
-  LcdWrite( LCD_CMD, 0x14 );  // LCD bias mode 1:48. //0x13
-  LcdWrite( LCD_CMD, 0x0C );  // LCD in normal mode. 0x0d for inverse
-  LcdWrite(LCD_C, 0x20);
-  LcdWrite(LCD_C, 0x0C);
-}
-
-void LcdString(char *characters)
-{
-  while (*characters)
-  {
-    LcdCharacter(*characters++);
-  }
-}
-
-void LcdWrite(byte dc, byte data)
-{
-  digitalWrite(PIN_DC, dc);
-  digitalWrite(PIN_SCE, LOW);
-  shiftOut(PIN_SDIN, PIN_SCLK, MSBFIRST, data);
-  digitalWrite(PIN_SCE, HIGH);
-}
-
-// gotoXY routine to position cursor 
-// x - range: 0 to 84
-// y - range: 0 to 5
-
-void gotoXY(int x, int y)
-{
-  LcdWrite( 0, 0x80 | x);  // Column.
-  LcdWrite( 0, 0x40 | y);  // Row.  
-
+  // Add the smiley to position "0" of the ASCII table...
+  lcd.createChar(0, glyph);
+  
+  // link the button 1 functions.
+  button1.attachClick(click1);
+  button1.attachDoubleClick(doubleclick1);
+  button1.attachLongPressStart(longPressStart1);
+  button1.attachLongPressStop(longPressStop1);
+  button1.attachDuringLongPress(longPress1);
+  
+  
+  // link the button 2 functions.
+  button2.attachClick(click2);
+  button2.attachDoubleClick(doubleclick2);
+  button2.attachLongPressStart(longPressStart2);
+  button2.attachLongPressStop(longPressStop2);
+  button2.attachDuringLongPress(longPress2);
 }
 
 
+void loop() {
+    button1.tick();
+  button2.tick();
 
-void drawLine(void)
-{
-  unsigned char  j;  
-   for(j=0; j<84; j++) // top
-	{
-          gotoXY (j,0);
-	  LcdWrite (1,0x01);
-  } 	
-  for(j=0; j<84; j++) //Bottom
-	{
-          gotoXY (j,5);
-	  LcdWrite (1,0x80);
-  } 	
+  // Just to show the program is alive...
+  static int counter = 0;
 
-  for(j=0; j<6; j++) // Right
-	{
-          gotoXY (83,j);
-	  LcdWrite (1,0xff);
-  } 	
-	for(j=0; j<6; j++) // Left
-	{
-          gotoXY (0,j);
-	  LcdWrite (1,0xff);
-  }
+  // Write a piece of text on the first line...
+  lcd.setCursor(0, 0);
+  lcd.print("Hello, World!");
 
-}
+  // Write the counter on the second line...
+  lcd.setCursor(0, 1);
+  lcd.print(counter, DEC);
+  lcd.write(' ');
+  lcd.write(0);  // write the smiley
+
+  // Use a potentiometer to set the LCD contrast...
+  // short level = map(analogRead(A0), 0, 1023, 0, 127);
+  // lcd.setContrast(level);
 
 
-void setup(void)
-{
 
- LcdInitialise();
-  LcdClear();
- pinMode(9, OUTPUT);
-//   Serial.begin(9600);
-   Serial.begin(57600);
-}
-
-void loop(void)
-{
-   digitalWrite(9, LOW);
-  // Display some simple character animation
-  //
-  Serial.println("q");
-  int a,b;
-  char Str[15];
-  // Draw a Box
-  while(Serial.available() > 0)
-  {
-     char aChar = Serial.read();
-     if(aChar == '\n')
-     {
-        // End of record detected. Time to parse
-
-
-        inData[index] = NULL;
-                index = 0;
-        break;
-     }
-     else
-     {
-        inData[index] = aChar;
-        index++;
-       // inData[index] = '\0'; // Keep the string NULL terminated
-     }
-  }
 //  char positions[20];
 #if 1
   if(inData[0] == 'P' && 
@@ -356,24 +155,33 @@ while (command != 0)
     
   }
 #endif    
-//    strcpy(inData
-//    pos_long = atof(inData+3);
-    
-  
+
   i++;
 
-  if(i > 100){
+  if(i > 10){
     i = 0;
-        LcdClear();
-        char buffo[20];
-        gotoXY(1,0);
-    sprintf(buffo, "c%iU%iI%iv%i", c, U, I, v);
-    LcdString(buffo);
-    
+//        LcdClear();
+        char buffo[60];
+
+//        gotoXY(3,1);
+   sprintf(buffo, "c%iU%iI%iv%i", c, U, I, v);
+  lcd.setCursor(2, 3);
+  lcd.print(buffo);
+
+//          dtostrf(U, 5, 1, buffo);
+  //        buffo[5] = 0;
+//    sprintf(buffo, "c%iU%iI%iv%i", c, U, I, v);
+//    LcdString(buffo);
+//LcdString("rrr");
+//drawLine();
+//gotoXY(3,1);
+//LcdCharacter('r');
+
+/*    
     gotoXY(2,1);
 
 //    LcdString(inData);      
-    LcdString(o);      
+//    LcdString(o);      
 //      String s = String(pos_long);
     gotoXY(1,5);
     pos_long = 2.34;
@@ -385,44 +193,73 @@ while (command != 0)
     //sprintf(buf, "miau%ibobo", j);
     //sprintf(buf, "miau%fbobo", j);
     dtostrf(P, 5, 2, buf);
-    LcdString(buf);      
+    LcdString(buf);      */
   }  
-  
-  
-  /*
-  for(b=1000; b>0; b--){
-      Serial.println("Q");
-  drawLine();
-  for(a=0; a<=5 ; a++){
-  gotoXY(4,1);
-  // Put text in Box
-  LcdString ("TestDisplay");
-  gotoXY(24,3);
-  LcdCharacter('H');
-  LcdCharacter('E');
-  LcdCharacter('L');
-  LcdCharacter('L');
-  LcdCharacter('O');
-  LcdCharacter(' ');
-  LcdCharacter('=');
-  // Draw + at this position
-  gotoXY(10,3);
-  LcdCharacter('=');
-  delay(500);
-  gotoXY(24,3);
-  LcdCharacter('h');
-  LcdCharacter('e');
-  LcdCharacter('l');
-  LcdCharacter('l');
-  LcdCharacter('o');
-  LcdCharacter(' ');
-  LcdCharacter('-');
-  // Draw - at this position
-  gotoXY(10,3);
-  LcdCharacter('-');
-  delay(500);
-  }
 
-  }
-    */
+
+//  delay(200);
+  counter++;
 }
+
+// ----- button 1 callback functions
+
+// This function will be called when the button1 was pressed 1 time (and no 2. button press followed).
+void click1() {
+  Serial.println("Button 1 click.");
+  U = U + 1;
+} // click1
+
+
+// This function will be called when the button1 was pressed 2 times in a short timeframe.
+void doubleclick1() {
+  Serial.println("Button 1 doubleclick.");
+    U = U + 2;
+} // doubleclick1
+
+
+// This function will be called once, when the button1 is pressed for a long time.
+void longPressStart1() {
+  Serial.println("Button 1 longPress start");
+    U = U + 5;
+} // longPressStart1
+
+
+// This function will be called often, while the button1 is pressed for a long time.
+void longPress1() {
+  Serial.println("Button 1 longPress...");
+} // longPress1
+
+
+// This function will be called once, when the button1 is released after beeing pressed for a long time.
+void longPressStop1() {
+  Serial.println("Button 1 longPress stop");
+} // longPressStop1
+
+
+// ... and the same for button 2:
+
+void click2() {
+  Serial.println("Button 2 click.");
+  U = U -1;
+} // click2
+
+
+void doubleclick2() {
+  Serial.println("Button 2 doubleclick.");
+} // doubleclick2
+
+
+void longPressStart2() {
+  Serial.println("Button 2 longPress start");
+} // longPressStart2
+
+
+void longPress2() {
+  Serial.println("Button 2 longPress...");
+} // longPress2
+
+void longPressStop2() {
+  Serial.println("Button 2 longPress stop");
+} // longPressStop2
+
+
